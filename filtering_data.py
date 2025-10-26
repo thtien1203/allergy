@@ -4,7 +4,7 @@ df = pd.read_csv("./data/ChatDoctor_HealthCareMagic_100k.csv")
 
 # remove instruction column
 df = df.drop("instruction", axis=1)
-df.to_csv("./data/preprocessed_data.csv", index=True)
+df.to_csv("./data/filtering_data.csv", index=True)
 
 # define keywords categories
 core_allergy_keywords = [
@@ -50,4 +50,4 @@ print(f"With symptom keywords: {len(with_symptoms)} ({len(with_symptoms)/len(all
 print(f"Without symptom keywords: {len(without_symptoms)} ({len(without_symptoms)/len(allergy_df)*100:.1f}%)")
 
 # save filtered data
-allergy_df.to_csv("./data/preprocessed_data.csv", index=True)
+allergy_df.to_csv("./data/filtering_data.csv", index=True)
