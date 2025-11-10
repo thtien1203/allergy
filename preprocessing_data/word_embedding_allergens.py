@@ -3,7 +3,6 @@ import numpy as np
 import spacy
 import json
 from collections import Counter
-import gensim.downloader as api
 
 df = pd.read_csv("./data/filtering_extracted_allergens.csv")
 # get unique allergens

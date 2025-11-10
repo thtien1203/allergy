@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import json
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+# from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from collections import Counter
@@ -26,20 +26,21 @@ n_clusters = 6
 kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
 cluster_labels = kmeans.fit_predict(embeddings)
 manual_corrections = {
-    'chicken':0, 'mushrooms': 0, 'tomatoes': 0,'alcohol': 0,   
-    'latex': 4,
+    'pollen':0, 'pollens':0, 'fish':1, 'eggs':1, 'mushrooms':1, 'tomatoes':1,
+    'bite':4, 'shrimp':1, 'shellfish':1, 'crab':1, 'scallops':1,
+    'latex':3, 'iodine':3, 'sulfur':3
 }
 # manual corrections
 for i, allergen in enumerate(valid_allergens):
     if allergen in manual_corrections:
         cluster_labels[i] = manual_corrections[allergen]
 
-insect_allergens = {"bee", "wasp", "mosquito", "insect bite"}
-new_cluster_id = cluster_labels.max() + 1   # this will be 6, new cluster = 6
+# contact_allergens = {"latex", "iodine", "sulfur"}
+# new_cluster_id = cluster_labels.max() + 1  # this will be 6, new cluster = 6
 
-for i, allergen in enumerate(valid_allergens):
-    if allergen in insect_allergens:
-        cluster_labels[i] = new_cluster_id
+# for i, allergen in enumerate(valid_allergens):
+#     if allergen in contact_allergens:
+#         cluster_labels[i] = new_cluster_id
 df_embeddings['cluster'] = cluster_labels
 n_clusters = cluster_labels.max() + 1
 # reduce dimensions for visualization
@@ -52,13 +53,13 @@ ax1 = fig.add_subplot(gs[0])  # Scatter plot
 ax2 = fig.add_subplot(gs[1])
 colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#bcbd22']
 cluster_to_category = {
-    0: "Food",
-    1: "Pet",
-    2: "Environmental",
-    3: "Seafood",
-    4: "Contact",
-    5: "Drug",
-    6: "Insect"
+    0: "Environmental",
+    1: "Food",
+    2: "Drug",
+    3: "Contact",
+    4: "Insect",
+    5: "Pet",
+    # 6: "Contact"
 }
 cluster_name = [f'Cluster {i}' for i in range(n_clusters)]
 # plot each cluster
@@ -90,6 +91,11 @@ for allergen, (x, y), label in zip(valid_allergens, embeddings_2d, cluster_label
             fontsize=8,
             color='black'
         )
+        # ax1.text(
+        #     x + 0.03, y + 0.03,
+        #     allergen,
+        #     fontsize=8,
+        #     color='black')
 ax1.set_xlabel('PCA Component 1', fontsize=13, fontweight='bold')
 ax1.set_ylabel('PCA Component 2', fontsize=13, fontweight='bold')
 ax1.set_title(f'K-means Clustering (K={n_clusters})', 

@@ -5,29 +5,29 @@ df = pd.read_csv("./data/allergy_related_w_symptoms.csv")
 
 allergen = {
     # food allergens
-    'peanut', 'peanuts', 'nut', 'nuts', 'milk', 'dairy', 'egg', 'eggs',
-    'wheat', 'gluten', 'soy', 'fish', 'shellfish', 'shrimp', 'crab',
-    'sesame', 'tree nut', 'almond', 'cashew', 'walnut', 'chocolate', 'chicken', 'alcohol', 'wine',
-    'tomatoes', 'mushrooms', 'scallops', 'oysters',
+    'peanut', 'peanuts', 'nut', 'cheese', 'dairy', 'eggs',
+    'wheat', 'gluten', 'fish', 'shellfish', 'shrimp', 'crab',
+    'sesame', 'cashew','chocolate', 'wine', 
+    'tomatoes', 'mushrooms', 'scallops', 'oysters', 'soy milk', 'soy beans',
     
     # drug allergens
-    'penicillin', 'ibuprofen', 'antibiotic', 'antibiotics',
-    'drug', 'amoxicillin', 'codeine', 'motrin', 
+    'penicillin', 'codeine', 'motrin', 'amoxicillin', 'azithromycin',
     
     # environmental allergens
-    'pollen', 'pollens', 'dust', 'mold', 'mould', 'grass', 'tree', 'ragweed',
-    'dog', 'pet', 'animal', 'mite', 'sulfas',
-    'latex', 'sulfur', 'pollution', 'evironmental',
-    
+    'pollen', 'pollens', 'dust', 'mold', 'mould', 
+     'pet', 'dust mite', 'sulfas', 'climate', 
+    'latex', 'sulfur', 'pollution', 'evironmental', 
+     
     # insect allergens
-    'bee', 'wasp', 'insect bite', 'dogs', 'cats', 'mosquito',
-    
+    'insects', 'bee', 'wasp', 'bite', 'insect bite', 'dogs', 'cats', 'mosquito',
+    # nuts, almonds, 'milk', egg, soy, 'ragweed',
     # allergy conditions
-    # 'food', 'seasonal', 'contact', 'cat', 'bronchitis', 'nasal',
-    'nickel', 'iodine', 'metal'
-    
+    # 'food', 'seasonal', 'contact', 'cat', 'bronchitis', 'nasal',  'ibuprofen','drug', 'grass', 'tree', 
+    'iodine',
+    #  'nickel','rhinitis', 'dermatitis', 'sinusitis', 'bronchitis',  'rhinosinusitis' 
+    # 'azithromycin', 'walnut', 'animal', 'antibiotic', 'antibiotics', 'tree nut',  'chicken', 'alcohol', 'metal', 'amoxicillin', 
     # common extracted allergen-related terms (condition)
-    # 'seafood','sting', 'dander','fur','asthma', 'chronic', 'rhinitis', 'dermatitis', 'sinusitis', 'bronchitis'
+    # walnut,'sting', 'dander','fur','asthma', 'chronic', 'rhinitis', 'dermatitis', 'sinusitis', 'bronchitis', 'seafood', 
 }
 def extract_allergens_with_regex(text):
     """
