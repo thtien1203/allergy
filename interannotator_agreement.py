@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from sklearn.metrics import cohen_kappa_score
 
 def print_label_idx(label_map):
     s = ""
@@ -23,7 +24,7 @@ def get_category_input(label_map):
     return val
 
 
-NUM_TO_SAMPLE = 10
+NUM_TO_SAMPLE = 3
 
 cwd = os.getcwd()
 data_dir = "data"
@@ -36,7 +37,6 @@ label_to_val = dict(zip([label.lower() for label in labels['labels']], labels.in
 
 
 dataset_df = pd.read_csv(os.path.join(cwd, data_dir, data_file))
-dataset_df = dataset_df[dataset_df['labels'] != 'Unknown']
 
 sampled_df = dataset_df.sample(NUM_TO_SAMPLE, ignore_index=True, axis=0)
 
@@ -59,7 +59,11 @@ for index, row in sampled_df.iterrows():
     val = get_category_input(label_to_val)
     self_labels.append(val)
 
-print(sampled_df["labels"].to_list())
-print(self_labels)
+clustered_labels = np.array([label_to_val[label.lower()] for label in sampled_df['labels']])
+self_labels = np.array(self_labels)
 
-# Cohen's Kappa? 
+cohen_kappa = cohen_kappa_score(clustered_labels, self_labels)
+
+# Cohen's Kappa
+print("Cohen's Kappa score (interannotator agreement):")
+print(cohen_kappa)
