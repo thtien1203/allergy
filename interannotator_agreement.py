@@ -24,7 +24,7 @@ def get_category_input(label_map):
     return val
 
 
-NUM_TO_SAMPLE = 3
+NUM_TO_SAMPLE = 50
 
 cwd = os.getcwd()
 data_dir = "data"
