@@ -1,10 +1,13 @@
 import os
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import recall_score, precision_score, balanced_accuracy_score, f1_score, confusion_matrix
 from scipy.sparse import hstack
+
+# 0 for bag-of-words; 1 for tf-idf
+FEATURE_TYPE = 1
 
 data_dir = "data"
 label_file = "labels.csv"
@@ -19,11 +22,19 @@ data['labels'] = data['labels'].map(label_to_val)
 
 data['allergens'] = data['allergens'].str.replace(',','')
 
-vectorizer_text = CountVectorizer()
+if FEATURE_TYPE == 0:
+    vectorizer_text = CountVectorizer()
+elif FEATURE_TYPE == 1:
+    vectorizer_text = TfidfVectorizer()
+
 vectorized_text = vectorizer_text.fit_transform(data['input'])
 
-vecotrizer_allergens = CountVectorizer()
-vectorized_allergens = vecotrizer_allergens.fit_transform(data['allergens'])
+if FEATURE_TYPE == 0:
+    vectorizer_allergens = CountVectorizer()
+elif FEATURE_TYPE == 1:
+    vectorizer_allergens = TfidfVectorizer()
+
+vectorized_allergens = vectorizer_allergens.fit_transform(data['allergens'])
 
 X = hstack([vectorized_text, vectorized_allergens])
 y = data['labels']
