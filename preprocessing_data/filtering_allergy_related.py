@@ -61,27 +61,18 @@ def has_symptoms(text):
 
     # use regrex to match the complete word only
     symptom_patterns = [
-    # r'\bhives?\b', r'\brash(es)?\b', r'\bitch(ing|y|es)?\b', r'\bred\b',
-    # r'\bredness\b', r'\bbump(s)?\b', r'\bswell(ing|ed|s)?\b', r'\bswollen\b',
-    # r'\bsneez(e|ing|ed|es)?\b', r'\bwheez(e|ing|ed|es)?\b', r'\bcough(ing|ed|s)?\b',
-    # r'\bthroat\b', r'runny\s+nose', r'stuffy\s+nose', r'sore\s+throat',
-    # r'watery\s+eyes?', r'itchy\s+eyes?', r'\btear(s|y|ing)\b',
     r'\bsneez(e|ing|ed|es)?\b', r'\bwheez(e|ing|ed|es)?\b',
-    # r'\bcough(ing|ed|s)?\b', 
     r'runny\s+nose', r'stuffy\s+nose',
-    # r'\bcongest(ed|ion)?\b', 
     r'\bnasal\b',
     r'watery\s+eyes?', r'itchy\s+eyes?', r'\btear(s|y|ing)\b',
     r'\beyes?\s+(itch|water|swell)',
     r'\bhives?\b', r'\brash(es)?\b.*\b(arm|leg|body|face|neck|chest|back)\b',
     r'\bitch(ing|y)?\b.*\b(arm|leg|body|face|neck|chest|back|skin)\b',
     r'sore\s+throat',
-    #   r'\bthroat.*\b(itch|swell|tight)',
     r'\bred\b.*\b(arm|leg|body|face|neck|chest|back|skin|hand|foot|feet)\b',
     r'\bredness\b.*\b(arm|leg|body|face|neck|chest|back|skin|hand|foot|feet)\b',
     r'\b(arm|leg|body|face|neck|chest|back|skin|hand|foot|feet)\b.*\bred\b',
     r'\b(arm|leg|body|face|neck|chest|back|skin|hand|foot|feet)\b.*\bredness\b',
-    # r'\btongue.*\bswell', r'\blip.*\bswell',
     r'\banaphyla(xis|ctic)\b',
 ]
     return any(re.search(pattern, text_lower) for pattern in symptom_patterns)

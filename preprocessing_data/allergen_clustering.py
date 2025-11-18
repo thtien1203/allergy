@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import json
 from sklearn.cluster import KMeans
-# from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from collections import Counter
@@ -20,27 +19,16 @@ for allergen_str in df_filtered['allergens'].dropna():
     all_allergens.extend(allergens)
 allergen_counts = Counter(all_allergens)
 
-# print(f"Loaded {len(embeddings)} allergen embeddings")
-# print(f"Embedding dimension: {embeddings.shape[1]}")
 n_clusters = 6
 kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
 cluster_labels = kmeans.fit_predict(embeddings)
-manual_corrections = {
-    'pollen':0, 'pollens':0, 'fish':1, 'eggs':1, 'mushrooms':1, 'tomatoes':1,
-    'bite':4, 'shrimp':1, 'shellfish':1, 'crab':1, 'scallops':1,
-    'latex':3, 'iodine':3, 'sulfur':3
-}
+manual_corrections = {'fish':1, 'eggs':1, 'shrimp':1, 'shellfish':1, 'mushrooms':1, 'crab':1, 'tomatoes':1, 'scallops':1,
+'pollen':0, 'pollens':0, 'bite':4, 'latex':3, 'sulfur':3}
 # manual corrections
 for i, allergen in enumerate(valid_allergens):
     if allergen in manual_corrections:
         cluster_labels[i] = manual_corrections[allergen]
 
-# contact_allergens = {"latex", "iodine", "sulfur"}
-# new_cluster_id = cluster_labels.max() + 1  # this will be 6, new cluster = 6
-
-# for i, allergen in enumerate(valid_allergens):
-#     if allergen in contact_allergens:
-#         cluster_labels[i] = new_cluster_id
 df_embeddings['cluster'] = cluster_labels
 n_clusters = cluster_labels.max() + 1
 # reduce dimensions for visualization

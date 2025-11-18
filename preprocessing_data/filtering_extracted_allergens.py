@@ -7,7 +7,7 @@ allergen = {
     # food allergens
     'peanut', 'peanuts', 'nut', 'cheese', 'dairy', 'eggs',
     'wheat', 'gluten', 'fish', 'shellfish', 'shrimp', 'crab',
-    'sesame', 'cashew','chocolate', 'wine', 
+    'sesame', 'cashew','chocolate', 'wine', 'creamed corn',
     'tomatoes', 'mushrooms', 'scallops', 'oysters', 'soy milk', 'soy beans',
     
     # drug allergens
@@ -23,7 +23,7 @@ allergen = {
     # nuts, almonds, 'milk', egg, soy, 'ragweed',
     # allergy conditions
     # 'food', 'seasonal', 'contact', 'cat', 'bronchitis', 'nasal',  'ibuprofen','drug', 'grass', 'tree', 
-     'iodine',
+    #  'iodine',
     # 'nickel','rhinitis', 'dermatitis', 'sinusitis', 'bronchitis',  'rhinosinusitis' 
     # 'azithromycin', 'walnut', 'animal', 'antibiotic', 'antibiotics', 'tree nut',  'chicken', 'alcohol', 'metal', 'amoxicillin', 
     # common extracted allergen-related terms (condition)
@@ -33,7 +33,6 @@ normalization_map = {
     'eggs': 'egg',
     'nuts': 'nut',
     'peanuts': 'peanut',
-    # 'antibiotics': 'antibiotic',
     'pollens': 'pollen',
     'dogs': 'dog',
     'mould': 'mold',
@@ -101,15 +100,3 @@ df_final = df_filtered[['Unnamed: 0', 'input', 'output', 'has_symptoms', 'allerg
 df_final['Unnamed: 0'] = range(len(df_final))
 # df_final["allergens"] = df_final["allergens"].fillna("None")
 df_final.to_csv("./data/filtering_extracted_allergens.csv", index=False)
-
-# from collections import Counter
-# all_allergens = []
-# for allergen_str in df_final['allergens'].dropna():
-#     allergens = [a.strip().lower() for a in str(allergen_str).split(',')]
-#     all_allergens.extend(allergens)
-
-# allergen_counts = Counter(all_allergens)
-# print(f"\nSummary:")
-# print(f"Total samples: {len(df_final)}")
-# print(f"Unique allergens: {len(allergen_counts)}")
-# print(f"Total allergen mentions: {sum(allergen_counts.values())}")
