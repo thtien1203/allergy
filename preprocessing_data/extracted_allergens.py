@@ -7,7 +7,7 @@ allergen = {
     # food allergens
     'peanut', 'peanuts', 'nut', 'cheese', 'dairy', 'eggs',
     'wheat', 'gluten', 'fish', 'shellfish', 'shrimp', 'crab',
-    'sesame', 'cashew','chocolate', 'wine', 
+    'sesame', 'cashew','chocolate', 'wine', 'creamed corn',
     'tomatoes', 'mushrooms', 'scallops', 'oysters', 'soy milk', 'soy beans',
     
     # drug allergens
@@ -23,8 +23,8 @@ allergen = {
     # nuts, almonds, 'milk', egg, soy, 'ragweed',
     # allergy conditions
     # 'food', 'seasonal', 'contact', 'cat', 'bronchitis', 'nasal',  'ibuprofen','drug', 'grass', 'tree', 
-    'iodine',
-    #  'nickel','rhinitis', 'dermatitis', 'sinusitis', 'bronchitis',  'rhinosinusitis' 
+    # 'iodine',
+    #  bites, 'nickel','rhinitis', 'dermatitis', 'sinusitis', 'bronchitis',  'rhinosinusitis' 
     # 'azithromycin', 'walnut', 'animal', 'antibiotic', 'antibiotics', 'tree nut',  'chicken', 'alcohol', 'metal', 'amoxicillin', 
     # common extracted allergen-related terms (condition)
     # walnut,'sting', 'dander','fur','asthma', 'chronic', 'rhinitis', 'dermatitis', 'sinusitis', 'bronchitis', 'seafood', 
