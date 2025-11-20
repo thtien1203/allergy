@@ -152,11 +152,10 @@ def evaluate(data_loader, model, device):
 
     model.eval()
     num_examples = 0
-    num_batches = 0
-    total_recall = 0
-    total_precision = 0
-    total_f1 = 0
-    total_balanced_acc = 0
+    num_samples = 0
+    all_top_i = []
+    all_labels = []
+
     for idx, batch in enumerate(data_loader):
         input_text = batch['text'].to(device)
         input_len = batch['len'].to(device)
@@ -166,21 +165,21 @@ def evaluate(data_loader, model, device):
         logits = model(input_text, input_len)
         top_n, top_i = logits.topk(1)
         num_examples += input_text.size(0)
-        num_batches += 1
+        num_samples += len(batch['text'])
 
         top_i = top_i.data.cpu()
         labels = labels.data.cpu()
 
-        total_recall += recall_score(labels, top_i, average='macro')
-        total_precision += precision_score(labels, top_i, average='macro')
-        total_f1 += f1_score(labels, top_i, average='macro')
-        total_balanced_acc += balanced_accuracy_score(labels, top_i)
-        
-        
-    recall = total_recall / num_batches
-    precision = total_precision / num_batches
-    f1 = total_f1 / num_batches
-    balanced_acc = total_balanced_acc / num_batches
+        all_top_i.append(top_i.squeeze().T)
+        all_labels.append(labels.squeeze().T)
+
+    all_labels = torch.cat(all_labels)
+    all_top_i = torch.cat(all_top_i)
+
+    recall = recall_score(all_labels, all_top_i, average='macro')
+    precision = precision_score(all_labels, all_top_i, average='macro')
+    f1 = f1_score(all_labels, all_top_i, average='macro')
+    balanced_acc = balanced_accuracy_score(all_labels, all_top_i)
 
     print(f"recall: {recall}, precision: {precision}, f1: {f1}, balanced accuracy: {balanced_acc}")
 
@@ -221,16 +220,16 @@ def train(args, model, train_data_loader, dev_data_loader, accuracy, device):
         loss.backward()
         optimizer.step()
 
-        clip_grad_norm_(model.parameters(), args.grad_clipping) 
+        # clip_grad_norm_(model.parameters(), args.grad_clipping) 
         print_loss_total += loss.data.cpu().numpy()
         epoch_loss_total += loss.data.cpu().numpy()
 
-        if idx % args.checkpoint == 0 and idx > 0:
-            print_loss_avg = print_loss_total / args.checkpoint
+        # if idx % args.checkpoint == 0 and idx > 0:
+        #     print_loss_avg = print_loss_total / args.checkpoint
 
-            print('number of steps: %d, loss: %.5f time: %.5f' % (idx, print_loss_avg, time.time()- start))
-            print_loss_total = 0
-            evaluate(dev_data_loader, model, device)
+        #     print('number of steps: %d, loss: %.5f time: %.5f' % (idx, print_loss_avg, time.time()- start))
+        #     print_loss_total = 0
+        #     evaluate(dev_data_loader, model, device)
         
     return accuracy
 
@@ -238,16 +237,8 @@ def train(args, model, train_data_loader, dev_data_loader, accuracy, device):
 
 
 class DanModel(nn.Module):
-    """High level model that handles intializing the underlying network
-    architecture, saving, updating examples, and predicting examples.
-    """
-
-    #### You don't need to change the parameters for the model for passing tests, might need to tinker to improve performance/handle
-    #### pretrained word embeddings/for your project code.
-
-
-    def __init__(self, n_classes, vocab_size, emb_dim=50,
-                 n_hidden_units=50, nn_dropout=.5):
+    def __init__(self, n_classes, vocab_size, emb_dim=1000,
+                 n_hidden_units=512, nn_dropout=0.2):
         super(DanModel, self).__init__()
         self.n_classes = n_classes
         self.vocab_size = vocab_size
@@ -255,23 +246,22 @@ class DanModel(nn.Module):
         self.n_hidden_units = n_hidden_units
         self.nn_dropout = nn_dropout
         self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim, padding_idx=0)
-        self.linear1 = nn.Linear(emb_dim, n_hidden_units)
-        self.linear2 = nn.Linear(n_hidden_units, n_classes)
+        self.dropout1 = nn.Dropout(self.nn_dropout)
+        self.bn1 = nn.BatchNorm1d(emb_dim)
+        self.fc1 = nn.Linear(emb_dim, n_hidden_units)
+        self.dropout2 = nn.Dropout(self.nn_dropout)
+        self.bn2 = nn.BatchNorm1d(n_hidden_units)
+        self.fc2 = nn.Linear(n_hidden_units, n_classes)
         self._softmax = nn.Softmax(dim=1)
 
-        torch.serialization.add_safe_globals([DanModel])
-        torch.serialization.add_safe_globals([torch.nn.modules.sparse.Embedding])
-        torch.serialization.add_safe_globals([torch.nn.modules.linear.Linear])
-        torch.serialization.add_safe_globals([torch.nn.modules.activation.Softmax])
-        torch.serialization.add_safe_globals([torch.nn.modules.container.Sequential])
-        torch.serialization.add_safe_globals([torch.nn.modules.activation.ReLU])
-        torch.serialization.add_safe_globals([torch.nn.modules.dropout.Dropout])
 
         self.net = nn.Sequential(
-            self.linear1,
-            nn.ReLU(),
-            nn.Dropout(self.nn_dropout),
-            self.linear2
+            self.dropout1,
+            # self.bn1,
+            self.fc1,
+            self.dropout2,
+            # self.bn2,
+            self.fc2
         )
         
        
@@ -323,9 +313,9 @@ if __name__ == "__main__":
     labels = pd.read_csv(os.path.join("..", data_dir, label_file))
     data = pd.read_csv(os.path.join("..", data_dir, data_file))
 
-    TRAIN_RATIO = 0.8
-    VAL_RATIO = 0.1
-    TEST_RATIO = 0.1
+    TRAIN_RATIO = 0.6
+    VAL_RATIO = 0.2
+    TEST_RATIO = 0.2
 
     assert (TRAIN_RATIO + VAL_RATIO + TEST_RATIO) == 1, "train, val, test ratio must sum to 1.0" 
 
