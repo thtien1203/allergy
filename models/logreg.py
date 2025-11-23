@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import recall_score, precision_score, balanced_accuracy_score, f1_score, confusion_matrix
 from scipy.sparse import hstack
+from sklearn.metrics import classification_report
 
 # 0 for bag-of-words; 1 for tf-idf
 FEATURE_TYPE = 1
@@ -13,8 +14,8 @@ data_dir = "data"
 label_file = "labels.csv"
 data_file = "dataset_with_labeled.csv"
 
-labels = pd.read_csv(os.path.join("..", data_dir, label_file))
-data = pd.read_csv(os.path.join("..", data_dir, data_file))
+labels = pd.read_csv(os.path.join(".", data_dir, label_file))
+data = pd.read_csv(os.path.join(".", data_dir, data_file))
 
 label_to_val = dict(zip([label for label in labels['labels']], labels.index.to_list()))
 
@@ -45,9 +46,14 @@ model = LogisticRegression(random_state=42)
 model.fit(X_train, y_train)
 
 y_pred = model.predict(X_test)
-print("recall: ", recall_score(y_test, y_pred, average='macro'))
-print("precision: ", precision_score(y_test, y_pred, average='macro'))
-print("f1: ", f1_score(y_test, y_pred, average='macro'))
+# label_to_val = dict(zip([label for label in labels['labels']], labels.index.to_list()))
+target_names = labels['labels'].tolist()
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=target_names, zero_division=0))
+print("recall: ", recall_score(y_test, y_pred, average='macro', zero_division=0))
+print("precision: ", precision_score(y_test, y_pred, average='macro', zero_division=0))
+print("f1: ", f1_score(y_test, y_pred, average='macro', zero_division=0))
 print("balanced accuracy: ", balanced_accuracy_score(y_test, y_pred))
 print("Confusion Matrix: ")
 print(confusion_matrix(y_test, y_pred))

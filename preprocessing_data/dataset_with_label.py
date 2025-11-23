@@ -51,6 +51,13 @@ def get_labels(cell):
 df_filtered["labels"] = df_filtered["allergens"].apply(get_labels)
 df_filtered.to_csv("./data/dataset_with_labeled.csv", index=False)
 
+label_counts = df_filtered['labels'].value_counts()
+total_samples = len(df_filtered)
+print('\nLabel distribution in Dataset')
+print(f"Total samples: {total_samples}\n")
+for label, count in label_counts.items():
+    percentage = (count/total_samples) * 100
+    print(f"{label}: {count} samples ({percentage:.2f}%)")
 # save all labels into one file
 # get unique labels from clustering file
 unique_labels = sorted(df_labels["labels"].dropna().unique().tolist())

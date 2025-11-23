@@ -5,12 +5,14 @@ import pandas as pd
 import os
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import recall_score, precision_score, balanced_accuracy_score, f1_score, confusion_matrix
+from sklearn.metrics import classification_report
 
 from torch.utils.data import Dataset
 from torch.nn.utils import clip_grad_norm_
 import argparse
 import time
 import nltk
+from collections import Counter
 
 kUNK = '<unk>'
 kPAD = '<pad>'
@@ -170,23 +172,25 @@ def evaluate(data_loader, model, device):
         top_i = top_i.data.cpu()
         labels = labels.data.cpu()
 
-        all_top_i.append(top_i.squeeze().T)
-        all_labels.append(labels.squeeze().T)
+        all_top_i.append(top_i.squeeze())
+        all_labels.append(labels.squeeze())
 
     all_labels = torch.cat(all_labels)
     all_top_i = torch.cat(all_top_i)
 
-    recall = recall_score(all_labels, all_top_i, average='macro')
-    precision = precision_score(all_labels, all_top_i, average='macro')
-    f1 = f1_score(all_labels, all_top_i, average='macro')
+    recall = recall_score(all_labels, all_top_i, average='macro', zero_division=0)
+    precision = precision_score(all_labels, all_top_i, average='macro', zero_division=0)
+    f1 = f1_score(all_labels, all_top_i, average='macro', zero_division=0)
     balanced_acc = balanced_accuracy_score(all_labels, all_top_i)
 
     print(f"recall: {recall}, precision: {precision}, f1: {f1}, balanced accuracy: {balanced_acc}")
+    label_indices = list(range(len(ind2class)))
+    print(classification_report(all_labels, all_top_i, labels=label_indices, target_names=[ind2class[i] for i in range(len(ind2class))], zero_division=0))
 
-    
 
 
-def train(args, model, train_data_loader, dev_data_loader, accuracy, device):
+
+def train(args, model, train_data_loader, dev_data_loader, accuracy, device, class_weights=None):
     """
     Train the current model
     Keyword arguments:
@@ -199,8 +203,12 @@ def train(args, model, train_data_loader, dev_data_loader, accuracy, device):
     """
 
     model.train()
-    optimizer = torch.optim.Adamax(model.parameters())
-    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adamax(model.parameters(), lr=0.0005, weight_decay=1e-4)
+    # criterion = nn.CrossEntropyLoss()
+    if class_weights is not None:
+        criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
+    else:
+        criterion = nn.CrossEntropyLoss()
     print_loss_total = 0
     epoch_loss_total = 0
     start = time.time()
@@ -233,7 +241,22 @@ def train(args, model, train_data_loader, dev_data_loader, accuracy, device):
         
     return accuracy
 
+def load_glove_embeddings(glove_path, word2ind, embedding_dim):
+    print("Loading GloVe embeddings...")
 
+    embedding_matrix = np.random.normal(0, 0.6, (len(word2ind), embedding_dim))
+
+    with open(glove_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], dtype='float32')
+
+            if word in word2ind:  
+                idx = word2ind[word]
+                embedding_matrix[idx] = vector
+
+    return torch.tensor(embedding_matrix, dtype=torch.float)
 
 
 class DanModel(nn.Module):
@@ -277,10 +300,10 @@ class DanModel(nn.Module):
         # Complete the forward funtion.  First look up the word embeddings.
 
         embedded = self.embeddings(input_text)
-
+        mask = (input_text != 0).float().unsqueeze(-1)
         # Then average them
-
-        average_embeddings = (embedded.sum(dim=1) / text_len.view(-1, 1))
+        masked_embedded = embedded * mask
+        average_embeddings = (masked_embedded.sum(dim=1) / text_len.view(-1, 1))
 
         # Before feeding them through the network
 
@@ -292,11 +315,118 @@ class DanModel(nn.Module):
 
         return logits
 
+def save_predictions(data_loader, model, device, original_df, ind2class, output_file):
+    model.eval()
+    all_predictions = []
+    all_labels = []
+    for idx, batch in enumerate(data_loader):
+        input_text = batch['text'].to(device)
+        input_len = batch['len'].to(device)
+        labels = batch['labels']
+        
+        logits = model(input_text, input_len)
+        top_n, top_i = logits.topk(1)
+        top_i = top_i.data.cpu().numpy()
+        labels = labels.data.cpu().numpy()
+        all_predictions.extend(top_i.flatten())
+        all_labels.extend(labels)
+    pred_labels = [ind2class[pred] for pred in all_predictions]
+    true_labels = [ind2class[true] for true in all_labels]
+    results_df = original_df.copy()
+    results_df['predicted_label'] = pred_labels
+    results_df['correct'] = [pred == true for pred, true in zip(pred_labels, true_labels)]
+    results_df.to_csv(output_file, index=False)
 
+def train_with_early_stopping(args, model, train_dataset, dev_loader, device, class_weights, patience=5):
+    best_val_f1 = 0
+    patience_counter = 0
+    best_model_state = None
+    train_sampler = torch.utils.data.sampler.RandomSampler(train_dataset)
+    
+    for epoch in range(args.num_epochs):
+        print(f'\nEpoch {epoch + 1}/{args.num_epochs}')
+        
+        # Training phase
+        model.train()
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, 
+            batch_size=args.batch_size, 
+            sampler=train_sampler, 
+            num_workers=0, 
+            collate_fn=batchify
+        )
+        
+        optimizer = torch.optim.Adamax(model.parameters(), lr=0.005, weight_decay=1e-3)
+        
+        if class_weights is not None:
+            criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
+        else:
+            criterion = nn.CrossEntropyLoss()
+        
+        epoch_loss = 0
+        for idx, batch in enumerate(train_loader):
+            input_text = batch['text'].to(device)
+            input_len = batch['len'].to(device)
+            labels = batch['labels'].to(device)
+            
+            logits = model(input_text, input_len)
+            loss = criterion(logits, labels)
+            
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()
+        
+        avg_loss = epoch_loss / len(train_loader)
+        print(f'Training Loss: {avg_loss:.4f}')
+        
+        model.eval()
+        all_preds = []
+        all_labels = []
+        
+        with torch.no_grad():
+            for batch in dev_loader:
+                input_text = batch['text'].to(device)
+                input_len = batch['len'].to(device)
+                labels = batch['labels']
+                
+                logits = model(input_text, input_len)
+                _, preds = logits.topk(1)
+                
+                all_preds.extend(preds.squeeze().cpu().numpy().tolist())
+                all_labels.extend(labels.cpu().numpy().tolist())
+        
+        val_f1 = f1_score(all_labels, all_preds, average='macro', zero_division=0)
+        val_acc = balanced_accuracy_score(all_labels, all_preds)
+        
+        print(f'Validation F1: {val_f1:.4f}, Balanced Acc: {val_acc:.4f}')
+        
+        # early stopping check
+        if val_f1 > best_val_f1:
+            best_val_f1 = val_f1
+            patience_counter = 0
+            best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            print(f'NEW BEST! Validation F1: {best_val_f1:.4f}')
+        else:
+            patience_counter += 1
+            print(f'No improvement (patience: {patience_counter}/{patience})')
+        
+        if patience_counter >= patience:
+            print(f'Early stopping triggered at epoch {epoch + 1}')
+            break  
+    
+    # Load best model after loop
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        model.to(device)
+        print(f'\nLoaded best model (Validation F1: {best_val_f1:.4f})')
+    
+    return model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Question Type')
-    parser.add_argument('--batch-size', type=int, default=128)
+    parser.add_argument('--batch-size', type=int, default=64)
     parser.add_argument('--num-epochs', type=int, default=20)
     parser.add_argument('--grad-clipping', type=int, default=5)
     parser.add_argument('--checkpoint', type=int, default=5)
@@ -310,18 +440,25 @@ if __name__ == "__main__":
     label_file = "labels.csv"
     data_file = "dataset_with_labeled.csv"
 
-    labels = pd.read_csv(os.path.join("..", data_dir, label_file))
-    data = pd.read_csv(os.path.join("..", data_dir, data_file))
+    labels = pd.read_csv(os.path.join(".", data_dir, label_file))
+    data = pd.read_csv(os.path.join(".", data_dir, data_file))
 
-    TRAIN_RATIO = 0.6
-    VAL_RATIO = 0.2
-    TEST_RATIO = 0.2
+    TRAIN_RATIO = 0.70 #0.6
+    VAL_RATIO = 0.15 # 0.20
+    TEST_RATIO = 0.15 #0.20
 
     assert (TRAIN_RATIO + VAL_RATIO + TEST_RATIO) == 1, "train, val, test ratio must sum to 1.0" 
 
-    train_df, test_df = train_test_split(data, test_size=TEST_RATIO)
-    train_df, val_df = train_test_split(train_df, test_size=(VAL_RATIO / (1 - TEST_RATIO)))
-
+    # train_df, test_df = train_test_split(data, test_size=TEST_RATIO)
+    # train_df, val_df = train_test_split(train_df, test_size=(VAL_RATIO / (1 - TEST_RATIO)))
+    train_df, test_df = train_test_split(data, test_size=TEST_RATIO, 
+                                      stratify=data['labels'], 
+                                      random_state=42)
+    train_df, val_df = train_test_split(train_df, 
+                                     test_size=(VAL_RATIO / (1 - TEST_RATIO)),
+                                     stratify=train_df['labels'],
+                                     random_state=42)
+    
     ### Load data
     train_exs = load_data(train_df)
     dev_exs = load_data(val_df)
@@ -339,7 +476,24 @@ if __name__ == "__main__":
     #get class to int mapping
     class2ind, ind2class = class_labels(train_exs + dev_exs)
 
+    train_labels = [label for _, label in train_exs]
+    label_counts = Counter(train_labels)
+    
+    total_samples = len(train_labels)
+    class_weights = []
+    for i in range(num_classes):
+        label_name = ind2class[i]
+        count = label_counts.get(label_name, 1)
+        weight = total_samples / (num_classes * count)
+        class_weights.append(weight)
+    
+    class_weights = torch.FloatTensor(class_weights)
+    print("\nClass Weights")
+    for i, weight in enumerate(class_weights):
+        print(f"{ind2class[i]}: {weight:.4f}")
+
     model = DanModel(num_classes, len(voc))
+    # model = DanModel(num_classes, len(voc), emb_dim=100, n_hidden_units=128, nn_dropout=0.3)
     model.to(device)
     print(model)
     #### Load batchifed dataset
@@ -352,14 +506,29 @@ if __name__ == "__main__":
                                             sampler=dev_sampler, num_workers=0,
                                             collate_fn=batchify)
     
-    accuracy = 0
-    for epoch in range(args.num_epochs):
-        print('start epoch %d' % epoch)
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                            sampler=train_sampler, num_workers=0,
-                                            collate_fn=batchify)
-        accuracy = train(args, model, train_loader, dev_loader, accuracy, device)
+    # accuracy = 0
+    # for epoch in range(args.num_epochs):
+    #     print('start epoch %d' % epoch)
+    #     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
+    #                                         sampler=train_sampler, num_workers=0,
+    #                                         collate_fn=batchify)
+    #     accuracy = train(args, model, train_loader, dev_loader, accuracy, device, class_weights)
+    # early stopping
+    model = train_with_early_stopping(args, model, train_dataset, dev_loader, 
+                                       device, class_weights, patience=10)
     print('start testing:\n')
+
+    print('\n=== Evaluating on Training Set ===')
+    train_loader_eval = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
+                                                     sampler=torch.utils.data.sampler.SequentialSampler(train_dataset),
+                                                     num_workers=0,
+                                                     collate_fn=batchify)
+    evaluate(train_loader_eval, model, device)
+
+    print('\n=== Evaluating on Validation Set ===')
+    evaluate(dev_loader, model, device)
+    
+    print('\n=== Evaluating on Test Set ===')
 
     test_dataset = AllergyDataset(test_exs, word2ind, num_classes, class2ind)
     test_sampler = torch.utils.data.sampler.SequentialSampler(test_dataset)
@@ -367,3 +536,4 @@ if __name__ == "__main__":
                                             sampler=test_sampler, num_workers=0,
                                             collate_fn=batchify)
     evaluate(test_loader, model, device)
+    save_predictions(test_loader, model, device, test_df, ind2class, output_file='./data/dan_predictions.csv')
