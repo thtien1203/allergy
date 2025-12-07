@@ -14,8 +14,8 @@ data_dir = "data"
 label_file = "labels.csv"
 data_file = "dataset_with_labeled.csv"
 
-labels = pd.read_csv(os.path.join(".", data_dir, label_file))
-data = pd.read_csv(os.path.join(".", data_dir, data_file))
+labels = pd.read_csv(os.path.join("..", data_dir, label_file))
+data = pd.read_csv(os.path.join("..", data_dir, data_file))
 
 label_to_val = dict(zip([label for label in labels['labels']], labels.index.to_list()))
 

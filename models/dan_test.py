@@ -14,6 +14,8 @@ import time
 import nltk
 from collections import Counter
 
+nltk.download('punkt_tab')
+
 kUNK = '<unk>'
 kPAD = '<pad>'
 
@@ -99,16 +101,6 @@ class AllergyDataset(Dataset):
 
     @staticmethod
     def vectorize(ex, word2ind):
-        """
-        vectorize a single example based on the word2ind dict. 
-        Keyword arguments:
-        exs: list of input questions-type pairs
-        ex: tokenized question sentence (list)
-        label: type of question sentence
-        Output:  vectorized sentence(python list) and label(int)
-        e.g. ['text', 'test', 'is', 'fun'] -> [0, 2, 3, 4]
-        """
-
         vec_text = [0] * len(ex)
 
         for i, word in enumerate(ex):
@@ -120,12 +112,6 @@ class AllergyDataset(Dataset):
         return vec_text
 
 def batchify(batch):
-    """
-    Gather a batch of individual examples into one batch, 
-    which includes the question text, question length and labels 
-    Keyword arguments:
-    batch: list of outputs from vectorize function
-    """
 
     input_len = list()
     label_list = list()
@@ -203,7 +189,7 @@ def train(args, model, train_data_loader, dev_data_loader, accuracy, device, cla
     """
 
     model.train()
-    optimizer = torch.optim.Adamax(model.parameters(), lr=0.0005, weight_decay=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1, weight_decay=1e-2)
     # criterion = nn.CrossEntropyLoss()
     if class_weights is not None:
         criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
@@ -213,7 +199,6 @@ def train(args, model, train_data_loader, dev_data_loader, accuracy, device, cla
     epoch_loss_total = 0
     start = time.time()
 
-    #### modify the following code to complete the training funtion
 
     for idx, batch in enumerate(train_data_loader):
         input_text = batch['text'].to(device)
@@ -260,8 +245,8 @@ def load_glove_embeddings(glove_path, word2ind, embedding_dim):
 
 
 class DanModel(nn.Module):
-    def __init__(self, n_classes, vocab_size, emb_dim=1000,
-                 n_hidden_units=512, nn_dropout=0.2):
+    def __init__(self, n_classes, vocab_size, emb_dim=50,
+                 n_hidden_units=50, nn_dropout=0):
         super(DanModel, self).__init__()
         self.n_classes = n_classes
         self.vocab_size = vocab_size
@@ -270,21 +255,18 @@ class DanModel(nn.Module):
         self.nn_dropout = nn_dropout
         self.embeddings = nn.Embedding(self.vocab_size, self.emb_dim, padding_idx=0)
         self.dropout1 = nn.Dropout(self.nn_dropout)
-        self.bn1 = nn.BatchNorm1d(emb_dim)
         self.fc1 = nn.Linear(emb_dim, n_hidden_units)
         self.dropout2 = nn.Dropout(self.nn_dropout)
-        self.bn2 = nn.BatchNorm1d(n_hidden_units)
         self.fc2 = nn.Linear(n_hidden_units, n_classes)
         self._softmax = nn.Softmax(dim=1)
 
 
         self.net = nn.Sequential(
-            self.dropout1,
-            # self.bn1,
             self.fc1,
-            self.dropout2,
-            # self.bn2,
-            self.fc2
+            nn.ReLU(),
+            self.dropout1,
+            self.fc2,
+            self.dropout2
         )
         
        
@@ -356,7 +338,7 @@ def train_with_early_stopping(args, model, train_dataset, dev_loader, device, cl
             collate_fn=batchify
         )
         
-        optimizer = torch.optim.Adamax(model.parameters(), lr=0.005, weight_decay=1e-3)
+        optimizer = torch.optim.Adam(model.parameters(), lr=3e-3, weight_decay=1e-4)
         
         if class_weights is not None:
             criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
@@ -426,8 +408,8 @@ def train_with_early_stopping(args, model, train_dataset, dev_loader, device, cl
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Question Type')
-    parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--num-epochs', type=int, default=20)
+    parser.add_argument('--batch-size', type=int, default=5)
+    parser.add_argument('--num-epochs', type=int, default=400)
     parser.add_argument('--grad-clipping', type=int, default=5)
     parser.add_argument('--checkpoint', type=int, default=5)
     parser.add_argument("--limit", help="Number of training documents", type=int, default=-1, required=False)
@@ -440,8 +422,8 @@ if __name__ == "__main__":
     label_file = "labels.csv"
     data_file = "dataset_with_labeled.csv"
 
-    labels = pd.read_csv(os.path.join(".", data_dir, label_file))
-    data = pd.read_csv(os.path.join(".", data_dir, data_file))
+    labels = pd.read_csv(os.path.join("..", data_dir, label_file))
+    data = pd.read_csv(os.path.join("..", data_dir, data_file))
 
     TRAIN_RATIO = 0.70 #0.6
     VAL_RATIO = 0.15 # 0.20
@@ -452,12 +434,10 @@ if __name__ == "__main__":
     # train_df, test_df = train_test_split(data, test_size=TEST_RATIO)
     # train_df, val_df = train_test_split(train_df, test_size=(VAL_RATIO / (1 - TEST_RATIO)))
     train_df, test_df = train_test_split(data, test_size=TEST_RATIO, 
-                                      stratify=data['labels'], 
-                                      random_state=42)
+                                      stratify=data['labels'])
     train_df, val_df = train_test_split(train_df, 
                                      test_size=(VAL_RATIO / (1 - TEST_RATIO)),
-                                     stratify=train_df['labels'],
-                                     random_state=42)
+                                     stratify=train_df['labels'])
     
     ### Load data
     train_exs = load_data(train_df)
@@ -492,8 +472,9 @@ if __name__ == "__main__":
     for i, weight in enumerate(class_weights):
         print(f"{ind2class[i]}: {weight:.4f}")
 
-    model = DanModel(num_classes, len(voc))
-    # model = DanModel(num_classes, len(voc), emb_dim=100, n_hidden_units=128, nn_dropout=0.3)
+    # model = DanModel(num_classes, len(voc), emb_dim=100)
+
+    model = DanModel(num_classes, len(voc), emb_dim=100, n_hidden_units=512, nn_dropout=0.2)
     model.to(device)
     print(model)
     #### Load batchifed dataset
@@ -515,7 +496,7 @@ if __name__ == "__main__":
     #     accuracy = train(args, model, train_loader, dev_loader, accuracy, device, class_weights)
     # early stopping
     model = train_with_early_stopping(args, model, train_dataset, dev_loader, 
-                                       device, class_weights, patience=10)
+                                       device, class_weights, patience=100)
     print('start testing:\n')
 
     print('\n=== Evaluating on Training Set ===')
@@ -536,4 +517,4 @@ if __name__ == "__main__":
                                             sampler=test_sampler, num_workers=0,
                                             collate_fn=batchify)
     evaluate(test_loader, model, device)
-    save_predictions(test_loader, model, device, test_df, ind2class, output_file='./data/dan_predictions.csv')
+    # save_predictions(test_loader, model, device, test_df, ind2class, output_file='./data/dan_predictions.csv')

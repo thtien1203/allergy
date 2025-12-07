@@ -34,18 +34,22 @@ data_dir = "data"
 label_file = "labels.csv"
 data_file = "dataset_with_labeled.csv"
 
-TRAIN_RATIO = 0.6
-VAL_RATIO = 0.2
-TEST_RATIO = 0.2
+TRAIN_RATIO = 0.7
+VAL_RATIO = 0.15
+TEST_RATIO = 0.15
 
 assert (TRAIN_RATIO + VAL_RATIO + TEST_RATIO) == 1, "train, val, test ratio must sum to 1.0"
 
-MODEL_NUM = 1
+MODEL_NUM = 3
 
 if __name__ == '__main__':
     
     if MODEL_NUM == 1:
         model_id = 'bert-base-cased'
+    elif MODEL_NUM == 2:
+        model_id = 'FacebookAI/roberta-base'
+    elif MODEL_NUM == 3:
+        model_id = 'dmis-lab/biobert-base-cased-v1.2'
     else:
         print(f"Model number {MODEL_NUM} is invalid - please change it to an allowed range of [1-3] and try again.")
         exit(-1)
@@ -91,15 +95,18 @@ if __name__ == '__main__':
 
     training_args = TrainingArguments(
         output_dir='./results',
-        learning_rate=1e-4,
-        num_train_epochs=1,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        learning_rate=1e-5,
+        #max_steps=20000,
+        num_train_epochs=400,
+        per_device_train_batch_size=48,
+        per_device_eval_batch_size=48,
         warmup_steps=500,
-        weight_decay=0.01,
+        weight_decay=0.03,
         logging_dir='./logs',
         eval_strategy="epoch",
-        eval_accumulation_steps=5,
+        save_strategy="no",
+        logging_strategy="no",
+        report_to="none",
         # use_cpu=True
     )
 
@@ -111,6 +118,13 @@ if __name__ == '__main__':
         eval_dataset=val_dataset
     )
     trainer.train()
+
+    print("Train performance:")
+    evaluate_model(trainer, train_dataset)
+
+    print("Val performance:")
+    evaluate_model(trainer, val_dataset)
+
 
     print("Test performance:")
     evaluate_model(trainer, test_dataset)
